@@ -1,5 +1,6 @@
 use crate::Holiday;
-use chrono::{Datelike, Month, Weekday};
+use chrono::Month;
+use chrono::{Datelike, NaiveDate, Weekday};
 use colored::Colorize;
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets, Cell, Color, ContentArrangement, Table};
 use num_traits::FromPrimitive;
@@ -42,18 +43,53 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
     let mut puente_count = 0;
     let holiday_count = holidays.len();
 
-    for holiday in holidays {
+    for (i, holiday) in holidays.iter().enumerate() {
         let holiday_date = holiday.date;
         let weekday = holiday_date.weekday();
 
+        // First rule: puente when holiday is Tuesday or Thursday
         let (puente_date, puente_day) = if weekday == Weekday::Tue {
             (holiday_date.pred_opt().unwrap(), "Monday")
         } else if weekday == Weekday::Thu {
             (holiday_date.succ_opt().unwrap(), "Friday")
+        } else if weekday == Weekday::Mon {
+            // Second rule: puente when holiday is Monday, previous Friday is puente
+            (
+                holiday_date.pred_opt().unwrap().pred_opt().unwrap(),
+                "Friday",
+            )
+        } else if weekday == Weekday::Fri {
+            // Third rule: puente when holiday is Friday, next Monday is puente
+            (
+                holiday_date.succ_opt().unwrap().succ_opt().unwrap(),
+                "Monday",
+            )
         } else {
-            continue; // Skip if not a puente day
+            continue;
         };
 
+        // Fourth rule: puente when two holidays have a weekday in between
+        if i < holiday_count - 1 {
+            let next_holiday = holidays[i + 1];
+            let next_holiday_date = next_holiday.date;
+            let day_diff = next_holiday_date
+                .signed_duration_since(holiday_date)
+                .num_days();
+            if day_diff == 2 {
+                let puente_in_between = holiday_date.succ_opt().unwrap();
+                add_row_to_table(
+                    &mut table,
+                    holiday_date,
+                    weekday,
+                    &holiday.name,
+                    puente_in_between,
+                    weekday_to_string(puente_in_between.weekday()).as_str(),
+                );
+                puente_count += 1;
+            }
+        }
+
+        // Filter by month if applicable
         if let Some(m) = month {
             if holiday_date.month() == m {
                 add_row_to_table(
@@ -102,10 +138,10 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
 
 fn add_row_to_table(
     table: &mut Table,
-    holiday_date: chrono::NaiveDate,
+    holiday_date: NaiveDate,
     weekday: Weekday,
     holiday_name: &str,
-    puente_date: chrono::NaiveDate,
+    puente_date: NaiveDate,
     puente_day: &str,
 ) {
     table.add_row(vec![
