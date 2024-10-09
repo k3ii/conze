@@ -83,7 +83,7 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         if !is_weekday(holiday_date) {
             continue; // Skip weekend holidays for regular puente scenarios
         }
-        
+
         let weekday = holiday_date.weekday();
 
         // Case 1: Tuesday puente (Monday becomes puente)
@@ -94,7 +94,7 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
                 }
             }
         }
-        
+
         // Case 2: Thursday puente (Friday becomes puente)
         if weekday == Weekday::Thu {
             if let Some(puente_date) = holiday_date.succ_opt() {
@@ -134,12 +134,17 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
             }
             if holiday1.date < holiday2.date {
                 if let Some(middle_date) = holiday1.date.succ_opt() {
-                    if middle_date < holiday2.date 
+                    if middle_date < holiday2.date
                         && (holiday2.date.signed_duration_since(holiday1.date).num_days() == 2)
                         && !holiday_dates.contains(&middle_date)
-                        && is_weekday(middle_date) {
-                        add_puente(&mut unique_puentes, &mut puente_days, middle_date, 
-                                 vec![holiday1.date, holiday2.date]);
+                        && is_weekday(middle_date)
+                    {
+                        add_puente(
+                            &mut unique_puentes,
+                            &mut puente_days,
+                            middle_date,
+                            vec![holiday1.date, holiday2.date],
+                        );
                     }
                 }
             }
@@ -155,7 +160,12 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         // Check day before consecutive holidays
         if let Some(before_date) = first_holiday.pred_opt() {
             if !holiday_dates.contains(&before_date) && is_weekday(before_date) {
-                add_puente(&mut unique_puentes, &mut puente_days, before_date, related_holidays.clone());
+                add_puente(
+                    &mut unique_puentes,
+                    &mut puente_days,
+                    before_date,
+                    related_holidays.clone(),
+                );
             }
         }
 
@@ -163,14 +173,19 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         if let Some(last_holiday) = consecutive.last() {
             if let Some(after_date) = last_holiday.succ_opt() {
                 if !holiday_dates.contains(&after_date) && is_weekday(after_date) {
-                    add_puente(&mut unique_puentes, &mut puente_days, after_date, related_holidays.clone());
+                    add_puente(
+                        &mut unique_puentes,
+                        &mut puente_days,
+                        after_date,
+                        related_holidays.clone(),
+                    );
                 }
             }
         }
     }
 
-    // Sort puente_days by month and day
-    puente_days.sort_by_key(|p| (p.date.month(), p.date.day()));
+    // Sort puente_days by complete date
+    puente_days.sort_by(|a, b| b.date.cmp(&a.date));
 
     // Filter by month if specified
     let filtered_puente_days: Vec<&PuenteDay> = if let Some(m) = month {
@@ -182,16 +197,14 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         puente_days.iter().collect()
     };
 
+    // Reverse the filtered days to show them in chronological order
+    let filtered_puente_days: Vec<_> = filtered_puente_days.into_iter().rev().collect();
+
     // Add rows to table
     for puente_day in &filtered_puente_days {
         let mut related_holidays = puente_day.related_holidays.clone();
         related_holidays.sort(); // Sort related holidays by date
-        add_row_to_table(
-            &mut table,
-            &related_holidays,
-            holidays,
-            puente_day.date,
-        );
+        add_row_to_table(&mut table, &related_holidays, holidays, puente_day.date);
     }
 
     if !filtered_puente_days.is_empty() {
@@ -215,7 +228,6 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
     println!();
 }
 
-// Helper functions remain the same
 fn add_puente(
     unique_puentes: &mut HashSet<NaiveDate>,
     puente_days: &mut Vec<PuenteDay>,
