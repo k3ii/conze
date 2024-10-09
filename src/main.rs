@@ -1,3 +1,4 @@
+mod cal;
 mod cli;
 mod parser;
 mod puente;
@@ -7,6 +8,7 @@ use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::cal::print_calendar;
 use crate::parser::parse_month;
 use crate::puente::print_puente_days;
 
@@ -64,17 +66,29 @@ async fn main() -> Result<(), reqwest::Error> {
                 println!("{}", bridge_pun(year));
             }
         }
-        _ => {
-            let month = matches.get_one::<String>("month");
-            let year = matches
+        Some(("calendar", sub_matches)) => {
+            let month = sub_matches.get_one::<String>("month");
+            let month = month
+                .and_then(|m| parse_month(m))
+                .unwrap_or_else(|| chrono::Local::now().month());
+            let year = sub_matches
                 .get_one::<String>("year")
                 .and_then(|y| y.parse::<i32>().ok())
                 .unwrap_or(current_year);
 
-            if let Some(month_value) = month {
-                println!("Month is {}", month_value);
+            if let Some(holidays) = mu_holidays.years.get(&year.to_string()) {
+                let holidays_for_month: Vec<&Holiday> = holidays
+                    .iter()
+                    .filter(|holiday| holiday.date.month() == month)
+                    .collect();
+                print_calendar(month, year, &holidays_for_month);
+            } else {
+                println!("No holidays found for the year {}.", year);
             }
-            println!("year is {}", year);
+        }
+
+        _ => {
+            println!("Test")
         }
     }
 

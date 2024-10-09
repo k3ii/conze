@@ -10,4 +10,10 @@ pub fn cli() -> Command {
                 .arg(Arg::new("month").short('m').aliases(["mois"]))
                 .arg(Arg::new("year").short('y').aliases(["lanner"])),
         )
+        .subcommand(
+            Command::new("calendar")
+                .aliases(["cal"])
+                .arg(Arg::new("month").short('m').aliases(["mois"]))
+                .arg(Arg::new("year").short('y').aliases(["lanner"])),
+        )
 }
