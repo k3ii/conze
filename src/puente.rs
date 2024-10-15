@@ -16,15 +16,15 @@ fn is_weekday(date: NaiveDate) -> bool {
     weekday != Weekday::Sat && weekday != Weekday::Sun
 }
 
-pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
+pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday], country_code: &str) {
     let mut table = Table::new();
     table
         .set_header(vec![
             Cell::new("Holiday\nDates").fg(Color::Blue),
             Cell::new("Holiday\nDays").fg(Color::Blue),
             Cell::new("Holiday\nNames").fg(Color::Blue),
-            Cell::new("Puente\nDates").fg(Color::Green),
-            Cell::new("Puente\nDays").fg(Color::Green),
+            Cell::new("Bridge\nDates").fg(Color::Green),
+            Cell::new("Bridge\nDays").fg(Color::Green),
         ])
         .load_preset(presets::UTF8_FULL)
         .apply_modifier(UTF8_ROUND_CORNERS)
@@ -35,16 +35,17 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         Some(m) => println!(
             "\n{}",
             format!(
-                "🌉 Puente days for {} {}:",
+                "🌉 Bridge days for {} {} ({}):",
                 Month::from_u32(m).unwrap().name(),
-                year
+                year,
+                country_code
             )
             .bold()
             .yellow()
         ),
         None => println!(
             "\n{}",
-            format!("🌉 Puente days for the year {}:", year)
+            format!("🌉 Bridge days for the year {} ({}):", year, country_code)
                 .bold()
                 .yellow()
         ),
@@ -90,7 +91,12 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         if weekday == Weekday::Tue {
             if let Some(puente_date) = holiday_date.pred_opt() {
                 if !holiday_dates.contains(&puente_date) {
-                    add_puente(&mut unique_puentes, &mut puente_days, puente_date, vec![holiday_date]);
+                    add_puente(
+                        &mut unique_puentes,
+                        &mut puente_days,
+                        puente_date,
+                        vec![holiday_date],
+                    );
                 }
             }
         }
@@ -99,25 +105,46 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         if weekday == Weekday::Thu {
             if let Some(puente_date) = holiday_date.succ_opt() {
                 if !holiday_dates.contains(&puente_date) {
-                    add_puente(&mut unique_puentes, &mut puente_days, puente_date, vec![holiday_date]);
+                    add_puente(
+                        &mut unique_puentes,
+                        &mut puente_days,
+                        puente_date,
+                        vec![holiday_date],
+                    );
                 }
             }
         }
 
         // Case 3: Monday holiday (previous Friday becomes puente)
         if weekday == Weekday::Mon {
-            if let Some(puente_date) = holiday_date.pred_opt().and_then(|d| d.pred_opt().and_then(|d| d.pred_opt())) {
+            if let Some(puente_date) = holiday_date
+                .pred_opt()
+                .and_then(|d| d.pred_opt().and_then(|d| d.pred_opt()))
+            {
                 if !holiday_dates.contains(&puente_date) {
-                    add_puente(&mut unique_puentes, &mut puente_days, puente_date, vec![holiday_date]);
+                    add_puente(
+                        &mut unique_puentes,
+                        &mut puente_days,
+                        puente_date,
+                        vec![holiday_date],
+                    );
                 }
             }
         }
 
         // Case 4: Friday holiday (next Monday becomes puente)
         if weekday == Weekday::Fri {
-            if let Some(puente_date) = holiday_date.succ_opt().and_then(|d| d.succ_opt().and_then(|d| d.succ_opt())) {
+            if let Some(puente_date) = holiday_date
+                .succ_opt()
+                .and_then(|d| d.succ_opt().and_then(|d| d.succ_opt()))
+            {
                 if !holiday_dates.contains(&puente_date) {
-                    add_puente(&mut unique_puentes, &mut puente_days, puente_date, vec![holiday_date]);
+                    add_puente(
+                        &mut unique_puentes,
+                        &mut puente_days,
+                        puente_date,
+                        vec![holiday_date],
+                    );
                 }
             }
         }
@@ -135,7 +162,11 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
             if holiday1.date < holiday2.date {
                 if let Some(middle_date) = holiday1.date.succ_opt() {
                     if middle_date < holiday2.date
-                        && (holiday2.date.signed_duration_since(holiday1.date).num_days() == 2)
+                        && (holiday2
+                            .date
+                            .signed_duration_since(holiday1.date)
+                            .num_days()
+                            == 2)
                         && !holiday_dates.contains(&middle_date)
                         && is_weekday(middle_date)
                     {
@@ -189,10 +220,7 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
 
     // Filter by month if specified
     let filtered_puente_days: Vec<&PuenteDay> = if let Some(m) = month {
-        puente_days
-            .iter()
-            .filter(|p| p.date.month() == m)
-            .collect()
+        puente_days.iter().filter(|p| p.date.month() == m).collect()
     } else {
         puente_days.iter().collect()
     };
@@ -211,12 +239,15 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday]) {
         println!("{table}");
         println!(
             "\n{}",
-            format!("🎯 Found {} puente opportunities!", filtered_puente_days.len())
-                .bold()
-                .green()
+            format!(
+                "🎯 Found {} bridge opportunities!",
+                filtered_puente_days.len()
+            )
+            .bold()
+            .green()
         );
     } else {
-        println!("\n{}", "😢 No puente days found.".bold().red());
+        println!("\n{}", "😢 No bridge days found.".bold().red());
     }
 
     println!(

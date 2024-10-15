@@ -1,8 +1,10 @@
+mod cal;
 mod cli;
 mod parser;
 mod puente;
 
 use chrono::{Datelike, Local, NaiveDate};
+use colored::Colorize;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10,7 +12,7 @@ use std::collections::HashMap;
 use crate::parser::parse_month;
 use crate::puente::print_puente_days;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)] // Added Clone
 struct Holiday {
     name: String,
     date: NaiveDate,
@@ -22,16 +24,26 @@ struct HolidaysByYear {
     years: HashMap<String, Vec<Holiday>>,
 }
 
+// New struct to hold country-specific holiday data
+#[derive(Debug)]
+struct CountryHolidays {
+    country: String,
+    holidays: Vec<Holiday>,
+}
+
+async fn fetch_holidays(url: &str) -> Result<HolidaysByYear, reqwest::Error> {
+    reqwest::Client::new().get(url).send().await?.json().await
+}
+
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     let matches = cli::cli().get_matches();
 
-    let mu_holidays: HolidaysByYear = reqwest::Client::new()
-        .get("https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays.json")
-        .send()
-        .await?
-        .json()
-        .await?;
+    let urls = HashMap::from([
+        ("MU", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays.json"),
+        ("SA", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-sa.json"),
+        ("FR", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/refs/heads/main/data/public-holidays-fr.json"),
+    ]);
 
     let current_year = Local::now().year();
 
@@ -43,38 +55,144 @@ async fn main() -> Result<(), reqwest::Error> {
                 .and_then(|y| y.parse::<i32>().ok())
                 .unwrap_or(current_year); // Fallback to current year if not provided
 
-            // Retrieve holidays for the given year
-            if let Some(holidays) = mu_holidays.years.get(&year.to_string()) {
-                match month.and_then(|m| parse_month(&m)) {
-                    Some(month) => {
-                        // Filter holidays for the selected month
-                        let holidays_for_month: Vec<&Holiday> = holidays
-                            .iter()
-                            .filter(|holiday| holiday.date.month() == month)
-                            .collect();
-                        print_puente_days(Some(month), year, &holidays_for_month);
+            let country_code = sub_matches
+                .get_one::<String>("country")
+                .map(|s| s.as_str())
+                .unwrap_or("MU");
+
+            if let Some(url) = urls.get(country_code) {
+                if let Ok(holidays_data) = fetch_holidays(url).await {
+                    if let Some(holidays) = holidays_data.years.get(&year.to_string()) {
+                        match month.and_then(|m| parse_month(&m)) {
+                            Some(month) => {
+                                let holidays_for_month: Vec<&Holiday> = holidays
+                                    .iter()
+                                    .filter(|holiday| holiday.date.month() == month)
+                                    .collect();
+                                print_puente_days(
+                                    Some(month),
+                                    year,
+                                    &holidays_for_month,
+                                    country_code,
+                                );
+                            }
+                            None => {
+                                let holiday_refs: Vec<&Holiday> = holidays.iter().collect();
+                                print_puente_days(None, year, &holiday_refs, country_code);
+                            }
+                        }
+                    } else {
+                        println!("{}", bridge_pun(year));
                     }
-                    None => {
-                        // If no specific month is provided, handle all holidays for the year
-                        let holiday_refs: Vec<&Holiday> = holidays.iter().collect();
-                        print_puente_days(None, year, &holiday_refs);
-                    }
+                } else {
+                    println!("Failed to fetch holiday data for {}", country_code);
                 }
             } else {
-                println!("{}", bridge_pun(year));
+                println!("Unsupported country code: {}", country_code);
             }
         }
-        _ => {
-            let month = matches.get_one::<String>("month");
-            let year = matches
+
+        Some(("calendar", sub_matches)) => {
+            let month = sub_matches.get_one::<String>("month");
+            let month = month
+                .and_then(|m| parser::parse_month(m))
+                .unwrap_or_else(|| chrono::Local::now().month());
+            let year = sub_matches
                 .get_one::<String>("year")
                 .and_then(|y| y.parse::<i32>().ok())
                 .unwrap_or(current_year);
 
-            if let Some(month_value) = month {
-                println!("Month is {}", month_value);
+            let compare_country = sub_matches.get_one::<String>("compare");
+
+            let mut country_holidays = Vec::new();
+            let mut missing_data = Vec::new();
+
+            // Fetch Mauritius holidays
+            if let Ok(mu_holidays) = fetch_holidays(urls["MU"]).await {
+                if let Some(holidays) = mu_holidays.years.get(&year.to_string()) {
+                    country_holidays.push(CountryHolidays {
+                        country: "MU".to_string(),
+                        holidays: holidays.clone(),
+                    });
+                } else {
+                    missing_data.push("Mauritius");
+                }
             }
-            println!("year is {}", year);
+
+            // Fetch comparison country if specified
+            if let Some(country_code) = compare_country {
+                if let Some(url) = urls.get(country_code.as_str()) {
+                    if let Ok(country_data) = fetch_holidays(url).await {
+                        if let Some(holidays) = country_data.years.get(&year.to_string()) {
+                            country_holidays.push(CountryHolidays {
+                                country: country_code.to_string(),
+                                holidays: holidays.clone(),
+                            });
+                        } else {
+                            missing_data.push(match country_code.as_str() {
+                                "SA" => "South Africa",
+                                _ => country_code.as_str(),
+                            });
+                        }
+                    }
+                } else {
+                    println!("Unsupported country code: {}", country_code);
+                    return Ok(());
+                }
+            }
+
+            if !missing_data.is_empty() {
+                println!(
+                    "{}\n",
+                    format!(
+                        "⚠️  No data available for year {} in {}.",
+                        year,
+                        missing_data.join(" and ")
+                    )
+                    .bold()
+                    .yellow()
+                );
+
+                // Print available years for each country with missing data
+                for country in missing_data {
+                    let url = match country {
+                        "Mauritius" => urls["MU"],
+                        "South Africa" => urls["SA"],
+                        _ => continue,
+                    };
+
+                    if let Ok(holiday_data) = fetch_holidays(url).await {
+                        let available_years: Vec<_> = holiday_data
+                            .years
+                            .keys()
+                            .map(|y| y.parse::<i32>().unwrap_or(0))
+                            .collect();
+
+                        if !available_years.is_empty() {
+                            let min_year = available_years.iter().min().unwrap();
+                            let max_year = available_years.iter().max().unwrap();
+                            println!(
+                                "{}",
+                                format!(
+                                    "📅 Available years for {}: {} to {}",
+                                    country, min_year, max_year
+                                )
+                                .bold()
+                                .blue()
+                            );
+                        }
+                    }
+                }
+                println!(); // Add a blank line for better formatting
+            }
+
+            if !country_holidays.is_empty() {
+                cal::print_calendar_comparison(month, year, &country_holidays);
+            }
+        }
+
+        _ => {
+            println!("Test")
         }
     }
 
