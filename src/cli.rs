@@ -21,6 +21,13 @@ pub fn cli() -> Command {
             Command::new("calendar")
                 .aliases(["cal"])
                 .arg(Arg::new("month").short('m').aliases(["mois"]))
-                .arg(Arg::new("year").short('y').aliases(["lanner"])),
+                .arg(Arg::new("year").short('y').aliases(["lanner"]))
+                .arg(
+                    Arg::new("compare")
+                        .long("compare")
+                        .short('c')
+                        .aliases(["cmp", "cpm"])
+                        .help("Compare holidays with another country (e.g., SA for South Africa)"),
+                ),
         )
 }
