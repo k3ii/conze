@@ -12,6 +12,7 @@ comfy-table = "7.1.1"
 crossterm = "0.28.1"
 directories = "5.0.1"
 num-traits = "0.2.19"
+openssl = { version = "0.10.68", features = ["vendored"] }
 prettytable = "0.10.0"
 rand = "0.8.5"
 reqwest = { version = "0.12.7", features = ["json"] }
