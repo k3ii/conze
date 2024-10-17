@@ -105,6 +105,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             } else {
                 println!("Unsupported country code: {}", country_code);
+                println!("Available countries are:");
+                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
             }
         }
 
@@ -152,6 +154,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 } else {
                     println!("Unsupported country code: {}", country_code);
+                    println!("Available countries are:");
+                    println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
+
                     return Ok(());
                 }
             }
@@ -240,6 +245,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             } else {
                 println!("Unsupported country code: {}", country_code);
+                println!("Available countries are:");
+                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
             }
         }
 
