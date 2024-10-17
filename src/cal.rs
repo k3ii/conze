@@ -1,8 +1,9 @@
 use crate::CountryHolidays;
 use chrono::{Datelike, Month, NaiveDate};
-use colored::Colorize;
+use colored::{Color, ColoredString, Colorize};
 use num_traits::FromPrimitive;
-use prettytable::{color, row, Attr, Table};
+use prettytable::{row, Table};
+use std::collections::HashMap;
 
 pub fn print_calendar_comparison(month: u32, year: i32, country_holidays: &[CountryHolidays]) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
@@ -15,6 +16,23 @@ pub fn print_calendar_comparison(month: u32, year: i32, country_holidays: &[Coun
         year
     );
 
+    // Assign a color for each country dynamically
+    let colors = assign_colors(country_holidays);
+
+    // Create a HashMap to store holidays for quick lookup
+    let mut holiday_map: HashMap<u32, Vec<(&str, &str)>> = HashMap::new();
+    for country in country_holidays {
+        for holiday in &country.holidays {
+            if holiday.date.month() == month && holiday.date.year() == year {
+                holiday_map
+                    .entry(holiday.date.day())
+                    .or_insert_with(Vec::new)
+                    .push((&country.country, &holiday.name));
+            }
+        }
+    }
+
+    // Calendar view
     for _ in 0..start_day_of_week {
         print!("   ");
     }
@@ -24,33 +42,12 @@ pub fn print_calendar_comparison(month: u32, year: i32, country_holidays: &[Coun
             print!("\n");
         }
 
-        let mut is_holiday = false;
-        let mut holiday_color = None;
-
-        for (i, country) in country_holidays.iter().enumerate() {
-            let is_country_holiday = country
-                .holidays
-                .iter()
-                .any(|holiday| holiday.date.month() == month && holiday.date.day() == day);
-
-            if is_country_holiday {
-                is_holiday = true;
-                holiday_color = Some(match i {
-                    0 => "green",  // First country (Mauritius)
-                    1 => "blue",   // Second country (South Africa)
-                    _ => "yellow", // Additional countries
-                });
-                break;
-            }
-        }
-
-        if is_holiday {
-            match holiday_color.unwrap() {
-                "green" => print!("{:2} ", day.to_string().green()),
-                "blue" => print!("{:2} ", day.to_string().blue()),
-                "yellow" => print!("{:2} ", day.to_string().yellow()),
-                _ => print!("{:2} ", day),
-            }
+        if let Some(holidays) = holiday_map.get(&day) {
+            let colored_day = match holidays.len() {
+                1 => colorize_day(day, holidays[0].0, &colors),
+                _ => day.to_string().magenta(), // Multiple holidays on the same day
+            };
+            print!("{:2} ", colored_day);
         } else {
             print!("{:2} ", day);
         }
@@ -65,18 +62,14 @@ pub fn print_calendar_comparison(month: u32, year: i32, country_holidays: &[Coun
         let holidays_this_month: Vec<_> = country
             .holidays
             .iter()
-            .filter(|holiday| holiday.date.month() == month)
+            .filter(|holiday| holiday.date.month() == month && holiday.date.year() == year)
             .collect();
 
         for holiday in holidays_this_month {
-            let colored_text = match country.country.as_str() {
-                "MU" => holiday.name.green(),
-                "SA" => holiday.name.blue(),
-                _ => holiday.name.yellow(),
-            };
+            let colored_text = colorize_holiday(&holiday.name, &country.country, &colors);
 
             table.add_row(row![
-                country.country,
+                &country.country,
                 holiday.date.day().to_string(),
                 colored_text
             ]);
@@ -84,6 +77,44 @@ pub fn print_calendar_comparison(month: u32, year: i32, country_holidays: &[Coun
     }
 
     table.printstd(); // Print the table to standard output
+}
+
+fn assign_colors(country_holidays: &[CountryHolidays]) -> HashMap<String, Color> {
+    let color_choices = vec![
+        Color::Green,
+        Color::Blue,
+        Color::Yellow,
+        Color::Red,
+        Color::Cyan,
+    ];
+
+    let mut color_map = HashMap::new();
+    for (i, country) in country_holidays.iter().enumerate() {
+        let color = color_choices
+            .get(i % color_choices.len())
+            .unwrap_or(&Color::White);
+        color_map.insert(country.country.clone(), *color);
+    }
+
+    color_map
+}
+
+fn colorize_day(day: u32, country: &str, colors: &HashMap<String, Color>) -> ColoredString {
+    colors
+        .get(country)
+        .map(|&color| day.to_string().color(color))
+        .unwrap_or_else(|| day.to_string().normal())
+}
+
+fn colorize_holiday(
+    holiday_name: &str,
+    country: &str,
+    colors: &HashMap<String, Color>,
+) -> ColoredString {
+    colors
+        .get(country)
+        .map(|&color| holiday_name.color(color))
+        .unwrap_or_else(|| holiday_name.normal())
 }
 
 fn days_in_month(year: i32, month: u32) -> u32 {

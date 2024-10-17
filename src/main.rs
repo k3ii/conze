@@ -1,18 +1,24 @@
 mod cal;
 mod cli;
+mod config;
+mod list;
 mod parser;
 mod puente;
 
 use chrono::{Datelike, Local, NaiveDate};
 use colored::Colorize;
+use directories::ProjectDirs;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 
+use crate::cal::print_calendar_comparison;
+use crate::config::Config;
 use crate::parser::parse_month;
 use crate::puente::print_puente_days;
 
-#[derive(Debug, Serialize, Deserialize, Clone)] // Added Clone
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct Holiday {
     name: String,
     date: NaiveDate,
@@ -24,11 +30,16 @@ struct HolidaysByYear {
     years: HashMap<String, Vec<Holiday>>,
 }
 
-// New struct to hold country-specific holiday data
 #[derive(Debug)]
 struct CountryHolidays {
     country: String,
     holidays: Vec<Holiday>,
+}
+
+fn get_config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let proj_dirs =
+        ProjectDirs::from("", "", "conze").ok_or("Failed to get project directories")?;
+    Ok(proj_dirs.config_dir().join("config.toml"))
 }
 
 async fn fetch_holidays(url: &str) -> Result<HolidaysByYear, reqwest::Error> {
@@ -36,16 +47,21 @@ async fn fetch_holidays(url: &str) -> Result<HolidaysByYear, reqwest::Error> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), reqwest::Error> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let current_year = Local::now().year();
+    let current_month = Local::now().month();
     let matches = cli::cli().get_matches();
 
     let urls = HashMap::from([
         ("MU", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays.json"),
-        ("SA", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-sa.json"),
+        ("ZA", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-sa.json"),
         ("FR", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/refs/heads/main/data/public-holidays-fr.json"),
     ]);
 
-    let current_year = Local::now().year();
+    let config_path = get_config_path()?;
+    let mut config = Config::load(&config_path).unwrap_or_else(|_| Config {
+        default_country: "MU".to_string(),
+    });
 
     match matches.subcommand() {
         Some(("bridge", sub_matches)) => {
@@ -53,14 +69,14 @@ async fn main() -> Result<(), reqwest::Error> {
             let year = sub_matches
                 .get_one::<String>("year")
                 .and_then(|y| y.parse::<i32>().ok())
-                .unwrap_or(current_year); // Fallback to current year if not provided
+                .unwrap_or(current_year);
 
             let country_code = sub_matches
                 .get_one::<String>("country")
-                .map(|s| s.as_str())
-                .unwrap_or("MU");
+                .map(|s| s.to_uppercase())
+                .unwrap_or_else(|| config.default_country.clone());
 
-            if let Some(url) = urls.get(country_code) {
+            if let Some(url) = urls.get(country_code.as_str()) {
                 if let Ok(holidays_data) = fetch_holidays(url).await {
                     if let Some(holidays) = holidays_data.years.get(&year.to_string()) {
                         match month.and_then(|m| parse_month(&m)) {
@@ -73,12 +89,12 @@ async fn main() -> Result<(), reqwest::Error> {
                                     Some(month),
                                     year,
                                     &holidays_for_month,
-                                    country_code,
+                                    &country_code,
                                 );
                             }
                             None => {
                                 let holiday_refs: Vec<&Holiday> = holidays.iter().collect();
-                                print_puente_days(None, year, &holiday_refs, country_code);
+                                print_puente_days(None, year, &holiday_refs, &country_code);
                             }
                         }
                     } else {
@@ -89,6 +105,8 @@ async fn main() -> Result<(), reqwest::Error> {
                 }
             } else {
                 println!("Unsupported country code: {}", country_code);
+                println!("Available countries are:");
+                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
             }
         }
 
@@ -107,15 +125,17 @@ async fn main() -> Result<(), reqwest::Error> {
             let mut country_holidays = Vec::new();
             let mut missing_data = Vec::new();
 
-            // Fetch Mauritius holidays
-            if let Ok(mu_holidays) = fetch_holidays(urls["MU"]).await {
-                if let Some(holidays) = mu_holidays.years.get(&year.to_string()) {
+            // Fetch default country holidays
+            if let Ok(default_holidays) =
+                fetch_holidays(urls[config.default_country.as_str()]).await
+            {
+                if let Some(holidays) = default_holidays.years.get(&year.to_string()) {
                     country_holidays.push(CountryHolidays {
-                        country: "MU".to_string(),
+                        country: config.default_country.clone(),
                         holidays: holidays.clone(),
                     });
                 } else {
-                    missing_data.push("Mauritius");
+                    missing_data.push(&config.default_country);
                 }
             }
 
@@ -129,14 +149,14 @@ async fn main() -> Result<(), reqwest::Error> {
                                 holidays: holidays.clone(),
                             });
                         } else {
-                            missing_data.push(match country_code.as_str() {
-                                "SA" => "South Africa",
-                                _ => country_code.as_str(),
-                            });
+                            missing_data.push(country_code);
                         }
                     }
                 } else {
                     println!("Unsupported country code: {}", country_code);
+                    println!("Available countries are:");
+                    println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
+
                     return Ok(());
                 }
             }
@@ -147,7 +167,11 @@ async fn main() -> Result<(), reqwest::Error> {
                     format!(
                         "⚠️  No data available for year {} in {}.",
                         year,
-                        missing_data.join(" and ")
+                        missing_data
+                            .iter()
+                            .map(|s| s.as_str())
+                            .collect::<Vec<&str>>()
+                            .join(" and ")
                     )
                     .bold()
                     .yellow()
@@ -155,11 +179,7 @@ async fn main() -> Result<(), reqwest::Error> {
 
                 // Print available years for each country with missing data
                 for country in missing_data {
-                    let url = match country {
-                        "Mauritius" => urls["MU"],
-                        "South Africa" => urls["SA"],
-                        _ => continue,
-                    };
+                    let url = urls.get(country.as_str()).unwrap();
 
                     if let Ok(holiday_data) = fetch_holidays(url).await {
                         let available_years: Vec<_> = holiday_data
@@ -191,8 +211,67 @@ async fn main() -> Result<(), reqwest::Error> {
             }
         }
 
+        Some(("config", sub_matches)) => {
+            if let Some(default_country) = sub_matches.get_one::<String>("default-country") {
+                config.default_country = default_country.to_uppercase();
+                config.save(&config_path)?;
+                println!("Default country set to: {}", config.default_country);
+            } else if sub_matches.subcommand_matches("show").is_some() {
+                println!("Default country: {}", config.default_country);
+            } else {
+                println!("Invalid config command. Use '--default-country' to set a new default country or 'show' to display the current configuration.");
+            }
+        }
+        Some(("list", sub_matches)) => {
+            let country_code = sub_matches
+                .get_one::<String>("country")
+                .map(|s| s.to_uppercase())
+                .unwrap_or_else(|| config.default_country.clone());
+
+            let year = sub_matches
+                .get_one::<String>("year")
+                .and_then(|y| y.parse::<i32>().ok())
+                .unwrap_or(current_year);
+
+            if let Some(url) = urls.get(country_code.as_str()) {
+                if let Ok(holidays_data) = fetch_holidays(url).await {
+                    if let Some(holidays) = holidays_data.years.get(&year.to_string()) {
+                        list::list_holidays(holidays, &country_code, year);
+                    } else {
+                        println!("No holiday data available for {} in {}", country_code, year);
+                    }
+                } else {
+                    println!("Failed to fetch holiday data for {}", country_code);
+                }
+            } else {
+                println!("Unsupported country code: {}", country_code);
+                println!("Available countries are:");
+                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
+            }
+        }
+
         _ => {
-            println!("Test")
+            // Handle the case where no arguments are provided
+            if matches.subcommand_name().is_none() {
+                let mut country_holidays = Vec::new();
+
+                // Fetch default country holidays
+                if let Ok(default_holidays) =
+                    fetch_holidays(urls[config.default_country.as_str()]).await
+                {
+                    if let Some(holidays) = default_holidays.years.get(&current_year.to_string()) {
+                        country_holidays.push(CountryHolidays {
+                            country: config.default_country.clone(),
+                            holidays: holidays.clone(),
+                        });
+                    }
+                }
+
+                // Print the calendar for the current month
+                print_calendar_comparison(current_month, current_year, &country_holidays);
+            } else {
+                println!("Invalid command. Use 'bridge' or 'calendar'.");
+            }
         }
     }
 
