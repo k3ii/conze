@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match matches.subcommand() {
         Some(("bridge", sub_matches)) => {
-            let month = sub_matches.get_one::<String>("month");
+            let month_input = sub_matches.get_one::<String>("month");
             let year = sub_matches
                 .get_one::<String>("year")
                 .and_then(|y| y.parse::<i32>().ok())
@@ -79,24 +79,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(url) = urls.get(country_code.as_str()) {
                 if let Ok(holidays_data) = fetch_holidays(url).await {
                     if let Some(holidays) = holidays_data.years.get(&year.to_string()) {
-                        match month.and_then(|m| parse_month(&m)) {
-                            Some(month) => {
-                                let holidays_for_month: Vec<&Holiday> = holidays
-                                    .iter()
-                                    .filter(|holiday| holiday.date.month() == month)
-                                    .collect();
-                                print_puente_days(
-                                    Some(month),
-                                    year,
-                                    &holidays_for_month,
-                                    &country_code,
-                                );
-                            }
-                            None => {
-                                let holiday_refs: Vec<&Holiday> = holidays.iter().collect();
-                                print_puente_days(None, year, &holiday_refs, &country_code);
-                            }
-                        }
+                        let month = match month_input {
+                            Some(m) => match parse_month(m) {
+                                Some(parsed_month) => parsed_month,
+                                None => {
+                                    println!("Error: Invalid month input. Please use a number (1-12) or a month name.");
+                                    return Ok(());
+                                }
+                            },
+                            None => current_month,
+                        };
+
+                        let holidays_for_month: Vec<&Holiday> = holidays
+                            .iter()
+                            .filter(|holiday| holiday.date.month() == month)
+                            .collect();
+                        print_puente_days(Some(month), year, &holidays_for_month, &country_code);
                     } else {
                         println!("{}", bridge_pun(year));
                     }
@@ -111,14 +109,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Some(("calendar", sub_matches)) => {
-            let month = sub_matches.get_one::<String>("month");
-            let month = month
-                .and_then(|m| parser::parse_month(m))
-                .unwrap_or_else(|| chrono::Local::now().month());
+            let month_input = sub_matches.get_one::<String>("month");
             let year = sub_matches
                 .get_one::<String>("year")
                 .and_then(|y| y.parse::<i32>().ok())
                 .unwrap_or(current_year);
+
+            let month = match month_input {
+                Some(m) => match parse_month(m) {
+                    Some(parsed_month) => parsed_month,
+                    None => {
+                        println!("Error: Invalid month input. Please use a number (1-12) or a month name.");
+                        return Ok(());
+                    }
+                },
+                None => current_month,
+            };
 
             let compare_country = sub_matches.get_one::<String>("compare");
 
@@ -279,7 +285,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn bridge_pun(year: i32) -> String {
-    // Create a list of pun lines
     let pun_lines = [
         format!("No holidays found for the year {}... looks like we'll have to bridge the gap to next year!", year),
         format!("No holidays found for the year {}... you'll have to find another bridge to escape!", year),
@@ -290,9 +295,7 @@ fn bridge_pun(year: i32) -> String {
         format!("No holidays found for the year {}... guess the bridge to holidays has been washed away!", year),
     ];
 
-    // Select a random pun line
     let random_pun = pun_lines.choose(&mut rand::thread_rng()).unwrap();
 
-    // Return the random pun line
-    random_pun.to_string() // Convert to String for return
+    random_pun.to_string()
 }
