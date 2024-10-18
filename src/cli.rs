@@ -34,7 +34,7 @@ pub fn cli() -> Command {
                         .long("default-country")
                         .value_name("COUNTRY_CODE")
                         .ignore_case(true)
-                        .help("Sets the default country"),
+                        .help("Sets the default country. \nAvailable countries:\n - France (FR)\n - Mauritius (MU)\n - South Africa (ZA)"),
                 )
                 .subcommand(Command::new("show").about("Displays the current configuration")),
         )
