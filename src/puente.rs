@@ -250,12 +250,14 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday], c
         println!("\n{}", "😢 No bridge days found.".bold().red());
     }
 
-    println!(
-        "{}",
-        format!("📅 Total holidays: {}", holidays.len())
-            .bold()
-            .blue()
-    );
+    let total_holidays_message = match month {
+        Some(m) => format!(
+            "📅 Total holidays for this month: {}",
+            holidays.iter().filter(|&h| h.date.month() == m).count()
+        ),
+        None => format!("📅 Total holidays for this year: {}", holidays.len()),
+    };
+    println!("{}", total_holidays_message.bold().blue());
     println!();
 }
 
