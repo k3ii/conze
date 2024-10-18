@@ -1,5 +1,5 @@
 use crate::Holiday;
-use chrono::{Datelike, Month, NaiveDate, Weekday};
+use chrono::{Datelike, Local, Month, NaiveDate, Weekday};
 use colored::Colorize;
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets, Cell, Color, ContentArrangement, Table};
 use num_traits::FromPrimitive;
@@ -17,12 +17,13 @@ fn is_weekday(date: NaiveDate) -> bool {
 }
 
 pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday], country_code: &str) {
+    let current_date = Local::now().date_naive();
     let mut table = Table::new();
     table
         .set_header(vec![
-            Cell::new("Holiday\nDates").fg(Color::Blue),
-            Cell::new("Holiday\nDays").fg(Color::Blue),
-            Cell::new("Holiday\nNames").fg(Color::Blue),
+            Cell::new("Holiday\nDates").fg(Color::Cyan),
+            Cell::new("Holiday\nDays").fg(Color::Cyan),
+            Cell::new("Holiday\nNames").fg(Color::Cyan),
             Cell::new("Bridge\nDates").fg(Color::Green),
             Cell::new("Bridge\nDays").fg(Color::Green),
         ])
@@ -232,7 +233,13 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday], c
     for puente_day in &filtered_puente_days {
         let mut related_holidays = puente_day.related_holidays.clone();
         related_holidays.sort(); // Sort related holidays by date
-        add_row_to_table(&mut table, &related_holidays, holidays, puente_day.date);
+        add_row_to_table(
+            &mut table,
+            &related_holidays,
+            holidays,
+            puente_day.date,
+            current_date,
+        );
     }
 
     if !filtered_puente_days.is_empty() {
@@ -257,6 +264,7 @@ pub fn print_puente_days(month: Option<u32>, year: i32, holidays: &[&Holiday], c
         ),
         None => format!("📅 Total holidays for this year: {}", holidays.len()),
     };
+
     println!("{}", total_holidays_message.bold().blue());
     println!();
 }
@@ -280,7 +288,15 @@ fn add_row_to_table(
     holiday_dates: &[NaiveDate],
     holidays: &[&Holiday],
     puente_date: NaiveDate,
+    current_date: NaiveDate,
 ) {
+    let is_past = puente_date < current_date;
+    let color = if is_past {
+        Color::DarkGrey
+    } else {
+        Color::Green
+    };
+
     let holiday_dates_str: String = holiday_dates
         .iter()
         .map(|d| d.format("%Y-%m-%d").to_string())
@@ -299,12 +315,18 @@ fn add_row_to_table(
         .collect::<Vec<_>>()
         .join("\n");
 
+    let holiday_color = if is_past {
+        Color::DarkGrey
+    } else {
+        Color::Cyan
+    };
+
     table.add_row(vec![
-        Cell::new(holiday_dates_str).fg(Color::Cyan),
-        Cell::new(holiday_days_str).fg(Color::Cyan),
-        Cell::new(holiday_names_str).fg(Color::Cyan),
-        Cell::new(puente_date.format("%Y-%m-%d").to_string()).fg(Color::Green),
-        Cell::new(weekday_to_string(puente_date.weekday())).fg(Color::Green),
+        Cell::new(holiday_dates_str).fg(holiday_color),
+        Cell::new(holiday_days_str).fg(holiday_color),
+        Cell::new(holiday_names_str).fg(holiday_color),
+        Cell::new(puente_date.format("%d-%m-%Y").to_string()).fg(color),
+        Cell::new(weekday_to_string(puente_date.weekday())).fg(color),
     ]);
 }
 
