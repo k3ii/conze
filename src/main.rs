@@ -111,14 +111,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Some(("calendar", sub_matches)) => {
-            let month = sub_matches.get_one::<String>("month");
-            let month = month
-                .and_then(|m| parser::parse_month(m))
-                .unwrap_or_else(|| chrono::Local::now().month());
+            let month_input = sub_matches.get_one::<String>("month");
             let year = sub_matches
                 .get_one::<String>("year")
                 .and_then(|y| y.parse::<i32>().ok())
                 .unwrap_or(current_year);
+
+            let month = match month_input {
+                Some(m) => match parse_month(m) {
+                    Some(parsed_month) => parsed_month,
+                    None => {
+                        println!("Error: Invalid month input. Please use a number (1-12) or a month name.");
+                        return Ok(());
+                    }
+                },
+                None => current_month,
+            };
 
             let compare_country = sub_matches.get_one::<String>("compare");
 
