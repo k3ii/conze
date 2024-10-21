@@ -14,7 +14,7 @@ You can install `conze` using one of the following methods:
 
 ### Using Cargo
 
-If you have Rust's package manager, Cargo, installed, you can install revq with:
+If you have Rust's package manager, Cargo, installed, you can install `conze` with:
 
 ```bash
 cargo install conze
