@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Loop through all files in the current directory
+for file in *; do
+    # Check if it's a regular file
+    if [ -f "$file" ]; then
+        echo "File: $file"
+        echo "--------------------"
+        cat "$file"
+        echo -e "\n"
+    fi
+done
+
