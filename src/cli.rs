@@ -2,6 +2,8 @@ use clap::{Arg, Command};
 
 pub fn cli() -> Command {
     Command::new("conze")
+        .version("0.1.0")
+        .author("Jain Ramchurn")
         .subcommand(
             Command::new("bridge")
                 .aliases(["pond", "pont", "pon", "puente"])

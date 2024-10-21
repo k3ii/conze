@@ -53,9 +53,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = cli::cli().get_matches();
 
     let urls = HashMap::from([
-        ("MU", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays.json"),
-        ("ZA", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-sa.json"),
-        ("FR", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/refs/heads/main/data/public-holidays-fr.json"),
+        ("MU", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-mu.json"),
+        ("ZA", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-za.json"),
+        ("FR", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-fr.json"),
     ]);
 
     let config_path = get_config_path()?;
