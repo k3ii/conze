@@ -299,7 +299,7 @@ fn add_row_to_table(
 
     let holiday_dates_str: String = holiday_dates
         .iter()
-        .map(|d| d.format("%Y-%m-%d").to_string())
+        .map(|d| d.format("%d-%m-%Y").to_string())
         .collect::<Vec<_>>()
         .join("\n");
 
