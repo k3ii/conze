@@ -49,7 +49,7 @@ targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 # Whether to install an updater program
-install-updater = false
+install-updater = true
 # A GitHub repo to push Homebrew formulas to
 tap = "k3ii/homebrew-tap"
 # Publish jobs to run in CI
