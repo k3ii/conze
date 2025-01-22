@@ -56,6 +56,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("MU", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-mu.json"),
         ("ZA", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-za.json"),
         ("FR", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-fr.json"),
+        ("TR", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-tr.json"),
+        ("SG", "https://raw.githubusercontent.com/nicolasstrands/data-konzer/main/data/public-holidays-sg.json"),
     ]);
 
     let config_path = get_config_path()?;
@@ -106,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 println!("Unsupported country code: {}", country_code);
                 println!("Available countries are:");
-                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
+                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR) - Turkey (TR) - Singapore (SG)");
             }
         }
 
@@ -163,7 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     println!("Unsupported country code: {}", country_code);
                     println!("Available countries are:");
-                    println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
+                    println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR) - Turkey (TR) - Singapore (SG)");
 
                     return Ok(());
                 }
@@ -254,7 +256,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 println!("Unsupported country code: {}", country_code);
                 println!("Available countries are:");
-                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR)");
+                println!("  - Mauritius (MU)\n  - South Africa (ZA)\n  - France (FR) - Turkey (TR) - Singapore (SG)");
             }
         }
 

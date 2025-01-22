@@ -45,7 +45,9 @@ conze config --default-country MU
 Currently, only the following countries are supported:
 * France (FR)
 * Mauritius (MU)
+* Turkey (TR)
 * South Africa (ZA)
+* Singapore (SG)
 
 This project has been possible thanks to the [dataset](https://github.com/nicolasstrands/data-konzer) by [Nicolas Strands](https://github.com/nicolasstrands). If you'd like support for another country, feel free to contribute to the dataset.
 
