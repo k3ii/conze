@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2](https://github.com/k3ii/revq/compare/0.1.1..0.1.2) - 2025-01-22
+
+### 📇 Features
+
+- Add dataset ref for Turkey and Singapore - ([9f66161](https://github.com/k3ii/revq/commit/9f66161090f25d94d1f8f45b9b710c0cff213fba))
+
 ## [0.1.0] - 2024-10-21
 
 ### 📇 Features
